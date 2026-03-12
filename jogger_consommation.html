@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dacia Jogger — Consommation GPL vs SP98</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --surface: #16181f;
+    --border: #2a2d38;
+    --gpl: #3dd9a4;
+    --sp98: #f06c2e;
+    --text: #e8eaf0;
+    --muted: #7a7e91;
+    --accent: #f5e642;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px 60px;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(61,217,164,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,217,164,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  header {
+    margin-bottom: 40px;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gpl);
+    border: 1px solid var(--gpl);
+    padding: 4px 12px;
+    margin-bottom: 16px;
+    opacity: 0.8;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(26px, 5vw, 44px);
+    line-height: 1.05;
+    letter-spacing: -1px;
+  }
+
+  h1 span.gpl { color: var(--gpl); }
+  h1 span.sp98 { color: var(--sp98); }
+
+  .subtitle {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  /* Stat cards */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: var(--muted); }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+  }
+
+  .stat-value.g { color: var(--gpl); }
+  .stat-value.s { color: var(--sp98); }
+
+  .stat-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Chart container */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px 28px 24px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .chart-wrap canvas { display: block; }
+
+  /* Crossover badge */
+  .crossover-badge {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    background: var(--accent);
+    color: #0e0f13;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 5px 12px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Tooltip zone label */
+  .zones {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+
+  .zone {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .zone-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .legend-line {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  /* Insight box */
+  .insight {
+    border-left: 3px solid var(--accent);
+    padding: 14px 18px;
+    background: rgba(245,230,66,0.04);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .insight strong { color: var(--text); }
+
+  /* Source */
+  .source {
+    font-size: 10px;
+    color: #484c60;
+    letter-spacing: 0.5px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    text-align: right;
+  }
+
+  /* Hover cursor line */
+  #tooltip-info, #tooltip-info2 {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -8px;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0 36px;
+  }
+
+  .section-header {
+    margin-bottom: 20px;
+  }
+
+  .section-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: clamp(18px, 3vw, 26px);
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .section-header p {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .price-pills {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .price-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+
+  .pill-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .savings-box {
+    background: rgba(61,217,164,0.06);
+    border: 1px solid rgba(61,217,164,0.2);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+
+  .savings-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .savings-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .savings-value {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--gpl);
+  }
+
+  .savings-sub {
+    font-size: 10px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="tag">Analyse carburant</div>
+    <h1>Dacia Jogger<br><span class="gpl">GPL</span> vs <span class="sp98">SP98</span></h1>
+    <p class="subtitle">Consommation réelle (L/100 km) en fonction de la vitesse — moteur 1.0 Eco-G 100 ch</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">GPL · Ville (30 km/h)</div>
+      <div class="stat-value g">9.5 L</div>
+      <div class="stat-sub">trafic urbain dense</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">GPL · Route (90 km/h)</div>
+      <div class="stat-value g">7.9 L</div>
+      <div class="stat-sub">routes secondaires</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">GPL · Autoroute (130 km/h)</div>
+      <div class="stat-value g">10.5 L</div>
+      <div class="stat-sub">vitesse stabilisée</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">SP98 · Ville (30 km/h)</div>
+      <div class="stat-value s">8.0 L</div>
+      <div class="stat-sub">trafic urbain dense</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">SP98 · Route (90 km/h)</div>
+      <div class="stat-value s">6.5 L</div>
+      <div class="stat-sub">routes secondaires</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">SP98 · Autoroute (130 km/h)</div>
+      <div class="stat-value s">7.6 L</div>
+      <div class="stat-sub">vitesse stabilisée</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--gpl);"></div>
+      <span>GPL (Eco-G)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--sp98); border-top: 2px dashed var(--sp98); background: transparent; border-bottom: none; border-left: none; border-right: none; width:32px;"></div>
+      <span>SP98 (essence)</span>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="crossover-badge">⚡ Croisement ~115 km/h</div>
+    <canvas id="chart" height="360"></canvas>
+  </div>
+
+  <p id="tooltip-info">— Survolez le graphique pour voir les valeurs —</p>
+
+  <div class="insight">
+    <strong>Lecture clé :</strong> Le GPL consomme toujours davantage en volume (L/100km) à toutes les vitesses. 
+    C'est le graphique ci-dessous (coût €/100km) qui révèle le vrai avantage économique du GPL.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <hr class="section-divider">
+
+  <div class="section-header">
+    <h2>Coût réel aux <span class="gpl">100 km</span> <span style="color:var(--muted);font-weight:400">en euros</span></h2>
+    <p>Consommation × prix du carburant — courbe centrale + bande de prix réels · GPL [0,90–1,10 €/L] · SP98 [1,70–2,00 €/L]</p>
+  </div>
+
+  <div class="price-pills">
+    <div class="price-pill">
+      <div class="pill-dot" style="background:var(--gpl)"></div>
+      <span>GPL — <strong style="color:var(--gpl)">0,90 – 1,10 €/L</strong> <span style="color:var(--muted);font-size:10px">(médiane 1,00)</span></span>
+    </div>
+    <div class="price-pill">
+      <div class="pill-dot" style="background:var(--sp98)"></div>
+      <span>SP98 — <strong style="color:var(--sp98)">1,70 – 2,00 €/L</strong> <span style="color:var(--muted);font-size:10px">(médiane 1,85)</span></span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--gpl);"></div>
+      <span>GPL médiane · bande 0,90–1,10 €/L</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:var(--sp98); border-top: 2px dashed var(--sp98); background: transparent; border-bottom: none; border-left: none; border-right: none; width:32px;"></div>
+      <span>SP98 médiane · bande 1,70–2,00 €/L</span>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="crossover-badge" style="background:var(--gpl)">✓ GPL toujours moins cher</div>
+    <canvas id="chart2" height="360"></canvas>
+  </div>
+
+  <p id="tooltip-info2">— Survolez le graphique pour voir les valeurs —</p>
+
+  <div class="savings-box">
+    <div class="savings-item">
+      <span class="savings-label">Économie · Ville (30 km/h)</span>
+      <span class="savings-value" id="save-30">—</span>
+      <span class="savings-sub">€ économisés / 100 km</span>
+    </div>
+    <div class="savings-item">
+      <span class="savings-label">Économie · Route (90 km/h)</span>
+      <span class="savings-value" id="save-90">—</span>
+      <span class="savings-sub">€ économisés / 100 km</span>
+    </div>
+    <div class="savings-item">
+      <span class="savings-label">Économie · Autoroute (130 km/h)</span>
+      <span class="savings-value" id="save-130">—</span>
+      <span class="savings-sub">€ économisés / 100 km</span>
+    </div>
+  </div>
+
+  <div class="insight" style="border-left-color: var(--gpl)">
+    <strong>Conclusion :</strong> Même dans le scénario le plus défavorable au GPL (GPL à 1,10 €/L, SP98 à 1,70 €/L), 
+    le GPL reste <strong style="color:var(--gpl)">moins cher aux 100 km</strong> à toutes les vitesses. 
+    Dans le meilleur cas (GPL à 0,90 €/L, SP98 à 2,00 €/L), l'économie peut dépasser 
+    <strong style="color:var(--gpl)">9 €/100km</strong> — soit plus de <strong style="color:var(--gpl)">1 350 €/an</strong> sur 15 000 km.
+  </div>
+
+  <div class="source">Sources : L'Argus (essai 1 000 km), Actua-Auto, Motor1.fr, avis propriétaires fiches-auto.fr · Valeurs moyennes relevées en conditions réelles · Prix carburant : base utilisateur (GPL 1,00 €/L · SP98 2,00 €/L)</div>
+
+</div>
+
+<script>
+// Points de données basés sur essais réels
+const speeds = [30, 50, 70, 90, 110, 130];
+
+// GPL : ville ~9.5, route ~7.9, monte sur autoroute ~10-11 (moyenne 10.5)
+// Courbe en U caractéristique des moteurs turbo 3 cylindres
+const gplData = [9.5, 8.6, 8.0, 7.9, 9.0, 10.5];
+
+// SP98 : ville ~7.0-8.0, route ~6.5, autoroute ~7.6
+// Courbe similaire mais décalée vers le bas en volume
+const sp98Data = [8.0, 7.2, 6.8, 6.5, 7.0, 7.6];
+
+const ctx = document.getElementById('chart').getContext('2d');
+
+// Fill zones
+const gplGradient = ctx.createLinearGradient(0, 0, 0, 360);
+gplGradient.addColorStop(0, 'rgba(61,217,164,0.18)');
+gplGradient.addColorStop(1, 'rgba(61,217,164,0)');
+
+const sp98Gradient = ctx.createLinearGradient(0, 0, 0, 360);
+sp98Gradient.addColorStop(0, 'rgba(240,108,46,0.14)');
+sp98Gradient.addColorStop(1, 'rgba(240,108,46,0)');
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: speeds.map(s => s + ' km/h'),
+    datasets: [
+      {
+        label: 'GPL (L/100km)',
+        data: gplData,
+        borderColor: '#3dd9a4',
+        backgroundColor: gplGradient,
+        borderWidth: 2.5,
+        pointBackgroundColor: '#3dd9a4',
+        pointBorderColor: '#0e0f13',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 9,
+        tension: 0.4,
+        fill: true,
+      },
+      {
+        label: 'SP98 (L/100km)',
+        data: sp98Data,
+        borderColor: '#f06c2e',
+        backgroundColor: sp98Gradient,
+        borderWidth: 2.5,
+        borderDash: [6, 3],
+        pointBackgroundColor: '#f06c2e',
+        pointBorderColor: '#0e0f13',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 9,
+        tension: 0.4,
+        fill: true,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    onHover: (event, elements) => {
+      if (elements.length > 0) {
+        const idx = elements[0].index;
+        const gpl = gplData[idx];
+        const sp98 = sp98Data[idx];
+        const diff = (gpl - sp98).toFixed(1);
+        const v = speeds[idx];
+        document.getElementById('tooltip-info').innerHTML =
+          `<strong style="color:#e8eaf0">${v} km/h</strong> — GPL: <strong style="color:#3dd9a4">${gpl} L</strong> · SP98: <strong style="color:#f06c2e">${sp98} L</strong> · Écart volume: <strong style="color:#f5e642">+${diff} L/100km GPL</strong>`;
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#16181f',
+        borderColor: '#2a2d38',
+        borderWidth: 1,
+        titleColor: '#e8eaf0',
+        bodyColor: '#7a7e91',
+        titleFont: { family: 'Syne', size: 13, weight: '700' },
+        bodyFont: { family: 'Space Mono', size: 11 },
+        padding: 14,
+        callbacks: {
+          title: (items) => items[0].label,
+          label: (item) => {
+            const name = item.datasetIndex === 0 ? '  GPL ' : '  SP98';
+            return `${name}  ${item.formattedValue} L/100km`;
+          },
+          afterBody: (items) => {
+            if (items.length === 2) {
+              const gpl = items[0].parsed.y;
+              const sp98 = items[1].parsed.y;
+              const diff = (gpl - sp98).toFixed(1);
+              return [``, `  Surcoût volume GPL : +${diff} L/100km`];
+            }
+            return [];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(42,45,56,0.8)', lineWidth: 1 },
+        ticks: {
+          color: '#7a7e91',
+          font: { family: 'Space Mono', size: 11 },
+        },
+        border: { color: '#2a2d38' },
+        title: {
+          display: true,
+          text: 'Vitesse (km/h)',
+          color: '#484c60',
+          font: { family: 'Syne', size: 11, weight: '600' },
+          padding: { top: 10 }
+        }
+      },
+      y: {
+        min: 5.5,
+        max: 12,
+        grid: { color: 'rgba(42,45,56,0.8)', lineWidth: 1 },
+        ticks: {
+          color: '#7a7e91',
+          font: { family: 'Space Mono', size: 11 },
+          callback: v => v + ' L'
+        },
+        border: { color: '#2a2d38' },
+        title: {
+          display: true,
+          text: 'Consommation (L / 100 km)',
+          color: '#484c60',
+          font: { family: 'Syne', size: 11, weight: '600' },
+          padding: { bottom: 10 }
+        }
+      }
+    }
+  }
+});
+
+// Draw crossover annotation manually after chart renders
+const originalDraw = chart.draw.bind(chart);
+chart.draw = function() {
+  originalDraw();
+  const meta0 = chart.getDatasetMeta(0);
+  if (!meta0.data.length) return;
+  const pt4 = meta0.data[3]; // index 3 = 90 km/h
+  if (!pt4) return;
+  const cCtx = chart.ctx;
+  cCtx.save();
+  cCtx.beginPath();
+  cCtx.setLineDash([4, 4]);
+  cCtx.strokeStyle = 'rgba(245,230,66,0.25)';
+  cCtx.lineWidth = 1;
+  cCtx.moveTo(pt4.x, chart.chartArea.top);
+  cCtx.lineTo(pt4.x, chart.chartArea.bottom);
+  cCtx.stroke();
+  cCtx.restore();
+};
+
+// ═══════════════════════════════════════════════
+// GRAPHIQUE 2 — Coût en €/100km avec intervalles de prix
+// GPL : 0.90 – 1.10 €/L   |   SP98 : 1.70 – 2.00 €/L
+// ═══════════════════════════════════════════════
+
+// Prix médians (courbes centrales)
+const GPL_MID  = 1.00;
+const SP98_MID = 1.85;
+
+// Bornes des intervalles
+const GPL_MIN  = 0.90,  GPL_MAX  = 1.10;
+const SP98_MIN = 1.70,  SP98_MAX = 2.00;
+
+// Courbes centrales
+const gplCostData   = gplData.map(v  => parseFloat((v  * GPL_MID).toFixed(2)));
+const sp98CostData  = sp98Data.map(v => parseFloat((v  * SP98_MID).toFixed(2)));
+
+// Bornes hautes / basses pour les bandes
+const gplCostMin  = gplData.map(v  => parseFloat((v  * GPL_MIN).toFixed(2)));
+const gplCostMax  = gplData.map(v  => parseFloat((v  * GPL_MAX).toFixed(2)));
+const sp98CostMin = sp98Data.map(v => parseFloat((v  * SP98_MIN).toFixed(2)));
+const sp98CostMax = sp98Data.map(v => parseFloat((v  * SP98_MAX).toFixed(2)));
+
+// Savings cards (médiane vs médiane)
+document.getElementById('save-30').textContent  = (sp98CostData[0] - gplCostData[0]).toFixed(2) + ' €';
+document.getElementById('save-90').textContent  = (sp98CostData[3] - gplCostData[3]).toFixed(2) + ' €';
+document.getElementById('save-130').textContent = (sp98CostData[5] - gplCostData[5]).toFixed(2) + ' €';
+
+const ctx2 = document.getElementById('chart2').getContext('2d');
+
+const chart2 = new Chart(ctx2, {
+  type: 'line',
+  data: {
+    labels: speeds.map(s => s + ' km/h'),
+    datasets: [
+      // ── Bande haute GPL (invisible, sert de plafond fill) ──
+      {
+        label: '_gpl_max',
+        data: gplCostMax,
+        borderColor: 'transparent',
+        backgroundColor: 'rgba(61,217,164,0.13)',
+        borderWidth: 0,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: '+1',   // fill vers dataset suivant (gplCostMin)
+      },
+      // ── Bande basse GPL ──
+      {
+        label: '_gpl_min',
+        data: gplCostMin,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: false,
+      },
+      // ── Courbe médiane GPL ──
+      {
+        label: 'GPL médiane (1,00 €/L)',
+        data: gplCostData,
+        borderColor: '#3dd9a4',
+        backgroundColor: 'transparent',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#3dd9a4',
+        pointBorderColor: '#0e0f13',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        tension: 0.4,
+        fill: false,
+      },
+      // ── Bande haute SP98 ──
+      {
+        label: '_sp98_max',
+        data: sp98CostMax,
+        borderColor: 'transparent',
+        backgroundColor: 'rgba(240,108,46,0.13)',
+        borderWidth: 0,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: '+1',   // fill vers dataset suivant (sp98CostMin)
+      },
+      // ── Bande basse SP98 ──
+      {
+        label: '_sp98_min',
+        data: sp98CostMin,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        pointRadius: 0,
+        tension: 0.4,
+        fill: false,
+      },
+      // ── Courbe médiane SP98 ──
+      {
+        label: 'SP98 médiane (1,85 €/L)',
+        data: sp98CostData,
+        borderColor: '#f06c2e',
+        backgroundColor: 'transparent',
+        borderWidth: 2.5,
+        borderDash: [6, 3],
+        pointBackgroundColor: '#f06c2e',
+        pointBorderColor: '#0e0f13',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        tension: 0.4,
+        fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    onHover: (event, elements) => {
+      const visibles = elements.filter(e => [2, 5].includes(e.datasetIndex));
+      if (visibles.length > 0) {
+        const idx = visibles[0].index;
+        const gplC  = gplCostData[idx];
+        const sp98C = sp98CostData[idx];
+        const gplLo = gplCostMin[idx],  gplHi  = gplCostMax[idx];
+        const spLo  = sp98CostMin[idx], spHi   = sp98CostMax[idx];
+        const saving = (sp98C - gplC).toFixed(2);
+        document.getElementById('tooltip-info2').innerHTML =
+          `<strong style="color:#e8eaf0">${speeds[idx]} km/h</strong> &nbsp;·&nbsp; ` +
+          `GPL: <strong style="color:#3dd9a4">${gplC.toFixed(2)} €</strong> <span style="color:#484c60">[${gplLo}–${gplHi}]</span> &nbsp;·&nbsp; ` +
+          `SP98: <strong style="color:#f06c2e">${sp98C.toFixed(2)} €</strong> <span style="color:#484c60">[${spLo}–${spHi}]</span> &nbsp;·&nbsp; ` +
+          `<strong style="color:#3dd9a4">Économie : −${saving} €</strong>`;
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        filter: (item) => [2, 5].includes(item.datasetIndex),
+        backgroundColor: '#16181f',
+        borderColor: '#2a2d38',
+        borderWidth: 1,
+        titleColor: '#e8eaf0',
+        bodyColor: '#7a7e91',
+        titleFont: { family: 'Syne', size: 13, weight: '700' },
+        bodyFont: { family: 'Space Mono', size: 11 },
+        padding: 14,
+        callbacks: {
+          title: (items) => items[0]?.label ?? '',
+          label: (item) => {
+            if (item.datasetIndex === 2) {
+              const i = item.dataIndex;
+              return `  GPL   ${item.parsed.y.toFixed(2)} € [${gplCostMin[i]}–${gplCostMax[i]}]`;
+            }
+            if (item.datasetIndex === 5) {
+              const i = item.dataIndex;
+              return `  SP98  ${item.parsed.y.toFixed(2)} € [${sp98CostMin[i]}–${sp98CostMax[i]}]`;
+            }
+          },
+          afterBody: (items) => {
+            if (items.length === 2) {
+              const gplC  = items[0].parsed.y;
+              const sp98C = items[1].parsed.y;
+              const saving = (sp98C - gplC).toFixed(2);
+              const savMin = (sp98CostMin[items[0].dataIndex] - gplCostMax[items[0].dataIndex]).toFixed(2);
+              const savMax = (sp98CostMax[items[0].dataIndex] - gplCostMin[items[0].dataIndex]).toFixed(2);
+              return [``, `  ✓ Économie : −${saving} € [fourchette −${savMin} à −${savMax}]`];
+            }
+            return [];
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(42,45,56,0.8)', lineWidth: 1 },
+        ticks: { color: '#7a7e91', font: { family: 'Space Mono', size: 11 } },
+        border: { color: '#2a2d38' },
+        title: {
+          display: true,
+          text: 'Vitesse (km/h)',
+          color: '#484c60',
+          font: { family: 'Syne', size: 11, weight: '600' },
+          padding: { top: 10 }
+        }
+      },
+      y: {
+        min: 5,
+        max: 22,
+        grid: { color: 'rgba(42,45,56,0.8)', lineWidth: 1 },
+        ticks: {
+          color: '#7a7e91',
+          font: { family: 'Space Mono', size: 11 },
+          callback: v => v.toFixed(0) + ' €'
+        },
+        border: { color: '#2a2d38' },
+        title: {
+          display: true,
+          text: 'Coût (€ / 100 km)',
+          color: '#484c60',
+          font: { family: 'Syne', size: 11, weight: '600' },
+          padding: { bottom: 10 }
+        }
+      }
+    }
+  }
+});
+
+// Légendes des bandes dessinées manuellement sur le canvas
+const originalDraw2 = chart2.draw.bind(chart2);
+chart2.draw = function() {
+  originalDraw2();
+  const cCtx2 = chart2.ctx;
+  const area   = chart2.chartArea;
+
+  // Récupérer les points des 4 bandes
+  const metaGplMax  = chart2.getDatasetMeta(0);
+  const metaGplMin  = chart2.getDatasetMeta(1);
+  const metaSp98Max = chart2.getDatasetMeta(3);
+  const metaSp98Min = chart2.getDatasetMeta(4);
+  if (!metaGplMax.data.length) return;
+
+  cCtx2.save();
+
+  // ── Bordures pointillées des bandes ──
+  const drawBorder = (meta, color) => {
+    cCtx2.beginPath();
+    cCtx2.setLineDash([3, 4]);
+    cCtx2.strokeStyle = color;
+    cCtx2.lineWidth = 1;
+    meta.data.forEach((pt, i) => {
+      i === 0 ? cCtx2.moveTo(pt.x, pt.y) : cCtx2.lineTo(pt.x, pt.y);
+    });
+    cCtx2.stroke();
+  };
+
+  drawBorder(metaGplMax,  'rgba(61,217,164,0.45)');
+  drawBorder(metaGplMin,  'rgba(61,217,164,0.45)');
+  drawBorder(metaSp98Max, 'rgba(240,108,46,0.45)');
+  drawBorder(metaSp98Min, 'rgba(240,108,46,0.45)');
+
+  cCtx2.restore();
+};
+</script>
+</body>
+</html>
